@@ -470,14 +470,62 @@ class Aichess():
             depthCurrentState = depthNode
             
     def AStarSearch(self, currentState):
+        frontier = queue.PriorityQueue() # Llista oberta
+        self.dictPath[str(currentState)] = (None, 0) # Guarda l'estat pare i la profunditat (estat_pare, g(n))
+        id_counter = 0 
+
+        # f(n) = g(n) + h(n)
+        f_initial = 0 + self.h(currentState)
+        frontier.put((f_initial, id_counter, currentState))
+
+        while not frontier.empty():
+            f_current, _, current_state = frontier.get() # Extraiem l'estat més proper al objectiu
+            g_current = self.dictPath[str(current_state)][1] # g(n)
+
+        # Si hem arribat a l'objectiu, reconstruim el camí i tornem True
+        if self.isCheckMate(current_state):
+            self.reconstructPath(current_state, g_current)
+            return True
+
+        # Afegim l'estat extret anteriorment a la llista tancada
+        self.listVisitedStates.append(current_state)
+
+        # Recorrem tots els possibles moviments desde la posició actual
+        for son in self.getListNextStatesW(current_state):
+            
+            # Si l'estat ja esta a la llista, no el visitem
+            if not self.isVisited(son):
+                g_son = g_current + 1
+                f_son = g_son + self.h(son) # f(n) = g(n) + h(n)
+                
+                # Guardem el pare al diccionari per poder reconstruir el camí i g(n) per futures iteracions
+                if str(son) not in self.dictPath:
+                    self.dictPath[str(son)] = (current_state, g_son)
+                    id_counter += 1
+                    frontier.put((f_son, id_counter, son))
+
+    # Heurística per calcular la distància  de Manhattan entre l'estat actual i el checkmate
+    def h(self, currentState):
+        white_king_pos = None
+        white_rook_pos = None
         
-        frontier = []
-        # Initialize the frontier with the initial state and its heuristic value 
-        # You have to also implement the heuristic function h().
-        frontier.append((self.h(currentState),currentState))
+        # Trobar la posició del rey i la torre
+        for piece in currentState:
+            if piece[2] == 6:
+                white_king_pos = (piece[0], piece[1])
+            elif piece[2] == 2:
+                white_rook_pos = (piece[0], piece[1])
+            
+        # Distancia de Manhattan de white_king_pos fins a la posicio de checkmate (2, 4)
+        h_king = abs(white_king_pos[0] - 2) + abs(white_king_pos[1] - 4)
+        
+        # Llista amb totes les columnes on, si la torre esta ala fila 0, es fa checkmate
+        target_rook_cols = [0, 1, 2, 6, 7]
 
-	# your code here...
-
+        # Calcula la distancia de Manhattan de white_rook_pos a les diverses posicions de checkmate, i torna la més curta 
+        h_rook = min([abs(white_rook_pos[0] - 0) + abs(white_rook_pos[1] - col) for col in target_rook_cols])
+        
+        return h_king + h_rook
 
 if __name__ == "__main__":
     # if len(sys.argv) < 2:
@@ -510,4 +558,3 @@ if __name__ == "__main__":
     print("#A* move sequence:", aichess.pathToTarget)
     print("A* End\n")
     print("Printing final board after A*:")
-
