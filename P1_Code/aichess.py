@@ -112,7 +112,7 @@ class Aichess():
         self.listVisitedStates = []
         self.listVisitedSituations = []
         self.pathToTarget = []
-        self.depthMax = 8;
+        self.depthMax = 8
         # Dictionary to reconstruct the visited path
         self.dictPath = {}
         # Prepare a dictionary to control the visited state and at which
@@ -468,7 +468,7 @@ class Aichess():
                     self.dictPath[str(son)] = (node, depthNode)
             currentState = node
             depthCurrentState = depthNode
-            
+
     def AStarSearch(self, currentState):
         frontier = queue.PriorityQueue() # Llista oberta
         self.dictPath[str(currentState)] = (None, 0) # Guarda l'estat pare i la profunditat (estat_pare, g(n))
@@ -478,36 +478,53 @@ class Aichess():
         f_initial = 0 + self.h(currentState)
         frontier.put((f_initial, id_counter, currentState))
 
+        # Obtenim la posicio de la cua amb cost minim
         while not frontier.empty():
             f_current, _, current_state = frontier.get() # Extraiem l'estat més proper al objectiu
             g_current = self.dictPath[str(current_state)][1] # g(n)
 
-        # Si hem arribat a l'objectiu, reconstruim el camí i tornem True
-        if self.isCheckMate(current_state):
-            self.reconstructPath(current_state, g_current)
-            return True
+            # Comprovem si es mat
+            if self.isCheckMate(current_state):
+                    self.reconstructPath(current_state, g_current)
+                    return True
 
-        # Afegim l'estat extret anteriorment a la llista tancada
-        self.listVisitedStates.append(current_state)
+            # Si no esta visitat, el visitem
+            if not self.isVisited(current_state):
+                self.listVisitedStates.append(current_state)
 
-        # Recorrem tots els possibles moviments desde la posició actual
-        for son in self.getListNextStatesW(current_state):
-            
-            # Si l'estat ja esta a la llista, no el visitem
-            if not self.isVisited(son):
-                g_son = g_current + 1
-                f_son = g_son + self.h(son) # f(n) = g(n) + h(n)
-                
-                # Guardem el pare al diccionari per poder reconstruir el camí i g(n) per futures iteracions
-                if str(son) not in self.dictPath:
-                    self.dictPath[str(son)] = (current_state, g_son)
-                    id_counter += 1
-                    frontier.put((f_son, id_counter, son))
+                # Creem copia de la posicio per utilitzar getListNextStatesW
+                # I prints per debug
+                TA = np.zeros((8, 8))
+                for i in current_state:
+                    TA[i[0]][i[1]] = i[2]
+                TA[0][4] = 12
+
+                # Creem nova taula amb el nostre moviment
+                newboard = Aichess(TA)
+
+                # Prints per debug
+                newboard.chess.board.print_board()
+                print(f_current)
+
+                # Obtenim seguents taules possibles
+                next_states = newboard.getListNextStatesW(current_state)
+
+                #print(next_states)
+
+                # Comprovem les seguents taules possibles
+                for son in next_states:
+                    g_son = g_current + 1
+                    f_son = g_son + self.h(son) # f(n) = g(n) + h(n)
+                    
+                    if str(son) not in self.dictPath or g_son < self.dictPath[str(son)][1]:
+                        self.dictPath[str(son)] = (current_state, g_son)
+                        id_counter += 1
+                        frontier.put((f_son, id_counter, son))
 
     # Heurística per calcular la distància  de Manhattan entre l'estat actual i el checkmate
     def h(self, currentState):
-        white_king_pos = None
-        white_rook_pos = None
+        white_king_pos = [0,0]
+        white_rook_pos = [0,0]
         
         # Trobar la posició del rey i la torre
         for piece in currentState:
@@ -515,16 +532,14 @@ class Aichess():
                 white_king_pos = (piece[0], piece[1])
             elif piece[2] == 2:
                 white_rook_pos = (piece[0], piece[1])
-            
-        # Distancia de Manhattan de white_king_pos fins a la posicio de checkmate (2, 4)
-        h_king = abs(white_king_pos[0] - 2) + abs(white_king_pos[1] - 4)
-        
+
+        # Usem distancia de Chebyshev, quantitat de moviments del rei per arribar a la nostra casella
+        h_king = max(abs(white_king_pos[0] - 2), abs(white_king_pos[1] - 4))
         # Llista amb totes les columnes on, si la torre esta ala fila 0, es fa checkmate
         target_rook_cols = [0, 1, 2, 6, 7]
 
-        # Calcula la distancia de Manhattan de white_rook_pos a les diverses posicions de checkmate, i torna la més curta 
-        h_rook = min([abs(white_rook_pos[0] - 0) + abs(white_rook_pos[1] - col) for col in target_rook_cols])
-        
+        # Calcula la quantitat de moviments necessaria per arribar a una columna i fila valida
+        h_rook = int((white_rook_pos[0] != 0)) + int((white_rook_pos[1] not in target_rook_cols ))
         return h_king + h_rook
 
 if __name__ == "__main__":
@@ -538,6 +553,7 @@ if __name__ == "__main__":
     # White pieces
     TA[7][0] = 2  
     TA[7][4] = 6
+    #TA[5][4] = 6
     # Black king   
     TA[0][4] = 12  
 
@@ -558,3 +574,9 @@ if __name__ == "__main__":
     print("#A* move sequence:", aichess.pathToTarget)
     print("A* End\n")
     print("Printing final board after A*:")
+
+    total_path = aichess.pathToTarget
+    for i in range(len(total_path)-1):   
+        aichess.changeState(total_path[i],total_path[i+1])
+
+    aichess.chess.boardSim.print_board()
